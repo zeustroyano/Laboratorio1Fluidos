@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Laboratorio 1 — Caída de esferas en un fluido viscoso (Ley de Stokes)</title>
+<style>
+  :root {
+    --bg: #f7f5f2;
+    --panel: #ffffff;
+    --texto: #222222;
+    --borde: #dddddd;
+    --acento: #1b2a4a;
+    --muted: #666666;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: Georgia, "Times New Roman", serif;
+    background: var(--bg);
+    color: var(--texto);
+    line-height: 1.5;
+  }
+  header {
+    background: var(--acento);
+    color: white;
+    padding: 1.2rem 1.5rem;
+  }
+  header h1 { margin: 0 0 0.3rem 0; font-size: 1.4rem; }
+  header p { margin: 0; font-size: 0.9rem; opacity: 0.85; }
+  main { max-width: 1150px; margin: 0 auto; padding: 1.5rem; }
+  section.panel {
+    background: var(--panel);
+    border: 1px solid var(--borde);
+    border-radius: 8px;
+    padding: 1rem 1.2rem;
+    margin-bottom: 1.2rem;
+  }
+  h2 { font-size: 1.1rem; margin-top: 0; color: var(--acento); }
+  h3 { font-size: 0.98rem; color: var(--acento); margin-bottom: 0.4rem; }
+  .nota { font-size: 0.85rem; color: var(--muted); }
+  .controles {
+    display: flex; flex-wrap: wrap; gap: 0.8rem; align-items: center;
+    margin-bottom: 1rem;
+  }
+  .controles button, .controles select {
+    font-family: inherit; font-size: 0.9rem;
+    padding: 0.45rem 0.9rem; border-radius: 5px;
+    border: 1px solid var(--borde); background: white; cursor: pointer;
+  }
+  .controles button:hover { background: #eee; }
+  .controles button:disabled { opacity: 0.5; cursor: default; }
+  .controles label { font-size: 0.85rem; display: flex; align-items: center; gap: 0.4rem; }
+  #estadoCarrera {
+    font-size: 0.92rem; font-weight: bold; margin-bottom: 0.8rem;
+    padding: 0.5rem 0.8rem; border-radius: 6px; background: #eef3f8;
+    color: var(--acento); display: inline-block;
+  }
+  .lienzos { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  @media (max-width: 820px) { .lienzos { grid-template-columns: 1fr; } }
+  canvas {
+    width: 100%; height: auto; background: #ffffff;
+    border: 1px solid var(--borde); border-radius: 6px; display: block;
+  }
+  .leyenda { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 0.6rem; font-size: 0.82rem; }
+  .leyenda span.punto {
+    display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px;
+  }
+  table {
+    width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 0.5rem;
+  }
+  th, td { border: 1px solid var(--borde); padding: 0.4rem 0.55rem; text-align: right; }
+  th { background: #eef1f5; text-align: center; }
+  td:first-child, th:first-child { text-align: left; }
+  tfoot td { font-weight: bold; background: #fafafa; }
+  .resumen-global {
+    margin-top: 0.8rem; font-size: 0.88rem;
+    background: #f4f7fa; border-radius: 6px; padding: 0.6rem 0.9rem;
+  }
+  footer {
+    max-width: 1150px; margin: 0 auto; padding: 1rem 1.5rem 2.5rem;
+    font-size: 0.8rem; color: var(--muted);
+  }
+  footer a { color: var(--acento); }
+  .aviso {
+    font-size: 0.85rem; background: #fff3cd; border: 1px solid #ffe08a;
+    border-radius: 6px; padding: 0.6rem 0.9rem; margin-bottom: 1rem; display: none;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Caída de esferas en un fluido viscoso — Ley de Stokes</h1>
+  <p>Laboratorio 1 — Mecánica de Fluidos · Propiedades de los fluidos, viscosidad · UNAL Medellín</p>
+</header>
+
+<main>
+
+  <div id="avisoDatos" class="aviso">
+    No se encontró <code>datos_animacion.js</code>. Ejecuta
+    <code>generar_datos_animacion.py</code> y asegúrate de que el archivo generado
+    quede junto a este <code>index.html</code>. Mientras tanto se muestran datos
+    de ejemplo.
+  </div>
+
+  <section class="panel">
+    <h2>Sobre esta simulación</h2>
+    <p style="font-size:0.92rem">
+      Cada esfera se libera con velocidad inicial nula y acelera hasta alcanzar su
+      <em>velocidad límite de caída</em> (Ley de Stokes, régimen laminar). La curva
+      <code>v(t) = v<sub>lim</sub>(1&nbsp;&minus;&nbsp;e<sup>&minus;t/&tau;</sup>)</code>
+      es la solución analítica del balance de fuerzas (peso &minus; empuje &minus; arrastre
+      viscoso) cuando el arrastre es lineal en la velocidad — el régimen de bajo número de
+      Reynolds verificado en la pregunta 5.2 de este laboratorio.
+    </p>
+    <p class="nota" id="notaTau">
+      Nota física: en este fluido tan viscoso, <code>&tau;</code> resulta del orden de
+      microsegundos — la esfera alcanza <code>v<sub>lim</sub></code> prácticamente al
+      instante. No es un error de la simulación: es la firma visual de que
+      <code>Re<sub>c</sub> ≪ 1</code> en todo el experimento.
+    </p>
+  </section>
+
+  <section class="panel">
+    <div class="controles">
+      <button id="btnPlay">▶ Iniciar carrera</button>
+      <button id="btnReset">⟲ Reiniciar</button>
+      <label>Velocidad
+        <select id="selSpeed">
+          <option value="1">1×</option>
+          <option value="2">2×</option>
+          <option value="3" selected>3×</option>
+          <option value="5">5×</option>
+          <option value="8">8×</option>
+        </select>
+      </label>
+      <label>Esfera destacada (balance de fuerzas)
+        <select id="selEsfera"></select>
+      </label>
+    </div>
+    <div id="estadoCarrera">t = 0.00 s</div>
+
+    <canvas id="canvasTubo" width="640" height="580"></canvas>
+    <div class="leyenda" id="leyendaTubo"></div>
+  </section>
+
+  <section class="panel">
+    <h2>Comparación de tiempos de llegada</h2>
+    <canvas id="canvasComparacion" width="900" height="220"></canvas>
+    <p class="nota">Tiempo para recorrer S = <span id="sMaxTexto"></span> m. Se actualiza en
+      vivo a medida que cada esfera llega.</p>
+  </section>
+
+  <div class="lienzos">
+    <section class="panel">
+      <h2>Velocidad vs. tiempo</h2>
+      <canvas id="canvasVt" width="540" height="360"></canvas>
+      <p class="nota">Las líneas punteadas horizontales marcan <code>v<sub>lim</sub></code>
+        de cada esfera.</p>
+    </section>
+    <section class="panel">
+      <h2>Balance de fuerzas — <span id="tituloFuerzas"></span></h2>
+      <canvas id="canvasFuerzas" width="540" height="360"></canvas>
+      <p class="nota">La barra "Resultante" se encoge hasta casi desaparecer: cuando el
+        arrastre iguala al peso neto, la aceleración se hace cero (sección 3 de la guía).</p>
+    </section>
+  </div>
+
+  <section class="panel">
+    <h2>Resultados del laboratorio (preguntas 5.1 – 5.3)</h2>
+    <table id="tablaResultados">
+      <thead>
+        <tr>
+          <th>Esfera</th><th>D [mm]</th><th>n</th><th>v<sub>m</sub> [m/s]</th>
+          <th>R²</th><th>v<sub>lim</sub> [m/s]</th><th>μ [Pa·s]</th>
+          <th>δμ [Pa·s]</th><th>δμ/μ [%]</th><th>Re<sub>c</sub></th>
+        </tr>
+      </thead>
+      <tbody id="cuerpoTablaResultados"></tbody>
+    </table>
+    <div class="resumen-global" id="resumenGlobal"></div>
+  </section>
+
+  <section class="panel" id="seccionDimensional" style="display:none;">
+    <h2>Análisis dimensional (pregunta 5.4)</h2>
+    <div class="lienzos">
+      <div>
+        <canvas id="canvasCdRe" width="480" height="380"></canvas>
+      </div>
+      <div>
+        <h3>Resultado del ajuste</h3>
+        <p style="font-size:0.9rem" id="resumenDimensional"></p>
+        <p class="nota">
+          Predicción teórica del régimen de Stokes (Re ≪ 1): C<sub>d</sub> = 24/Re
+          (a = 24, b = &minus;1). La cercanía del ajuste con esta recta confirma,
+          de forma independiente, la validez de la Ley de Stokes en este experimento.
+        </p>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  Página generada a partir de los resultados del análisis de datos del Laboratorio 1
+  (regresión S–t, corrección de Ladenburg, propagación de error, análisis dimensional).
+  Código fuente disponible en este mismo repositorio de GitHub Pages.
+</footer>
+
+<script src="datos_animacion.js" onerror="document.getElementById('avisoDatos').style.display='block'"></script>
+<script>
+// ---------------------------------------------------------------------
+// Datos: si no se genero datos_animacion.js, usamos un ejemplo completo
+// para que la pagina no quede vacia mientras el usuario corre el script.
+// ---------------------------------------------------------------------
+const DATA = (typeof LAB_DATA !== "undefined") ? LAB_DATA : {
+  fluido: "Fluido de ejemplo (datos_animacion.js no encontrado)",
+  mu_pond: 3.78, d_mu_pond: 0.04, chi2_red: 0.49,
+  rho_f: 1014, rho_e: 7850, g: 9.81, S_max: 0.65,
+  esferas: [
+    {nombre:"Esfera 1", D_mm:4,  color:"#8c1c13", n_puntos:14, v_m:0.014574, R2:0.99999, v_lim:0.016128, tau:1.8e-6, t_llegada:40.30, masa:2.63e-7, peso:2.58e-6, empuje:3.34e-7, mu_pas:3.6955, d_mu_pas:0.1276, d_mu_rel_pct:3.45, Re_c:0.0160},
+    {nombre:"Esfera 2", D_mm:6,  color:"#1b6ea8", n_puntos:14, v_m:0.031043, R2:0.99999, v_lim:0.036010, tau:4.1e-6, t_llegada:18.05, masa:8.88e-7, peso:8.71e-6, empuje:1.13e-6, mu_pas:3.7246, d_mu_pas:0.0767, d_mu_rel_pct:2.06, Re_c:0.0507},
+    {nombre:"Esfera 3", D_mm:8,  color:"#2f7a3d", n_puntos:14, v_m:0.051849, R2:0.99999, v_lim:0.062911, tau:7.4e-6, t_llegada:10.33, masa:2.10e-6, peso:2.07e-5, empuje:2.68e-6, mu_pas:3.7901, d_mu_pas:0.0611, d_mu_rel_pct:1.61, Re_c:0.1110},
+    {nombre:"Esfera 4", D_mm:10, color:"#7b3f9e", n_puntos:14, v_m:0.076968, R2:0.99998, v_lim:0.097493, tau:11.6e-6, t_llegada:6.67,  masa:4.11e-6, peso:4.03e-5, empuje:5.24e-6, mu_pas:3.8214, d_mu_pas:0.0585, d_mu_rel_pct:1.53, Re_c:0.2042},
+  ],
+  analisis_dim: {
+    a_coef: 24.65, b_exp: -0.987, r2_dim: 1.0,
+    puntos: [
+      {D_mm:4, Re:0.01730, Cd:1356.0}, {D_mm:6, Re:0.05795, Cd:408.0},
+      {D_mm:8, Re:0.13499, Cd:178.2}, {D_mm:10, Re:0.26150, Cd:92.8},
+    ]
+  }
+};
+
+// ---------------------------------------------------------------------
+// Estado global
+// ---------------------------------------------------------------------
+const estado = {
+  corriendo: false, terminado: false,
+  t: 0, velocidad: 3, esferaDestacada: 0, ultimoFrame: null,
+};
+const T_LLEGADA_MAX = Math.max(...DATA.esferas.map(e => e.t_llegada));
+
+function v_de_t(e, t) { return e.v_lim * (1 - Math.exp(-t / e.tau)); }
+function y_de_t(e, t) {
+  const y = e.v_lim * (t - e.tau * (1 - Math.exp(-t / e.tau)));
+  return Math.min(y, DATA.S_max);
+}
+function arrastre_de_t(e, t) {
+  const netoMax = e.peso - e.empuje;
+  return netoMax * (v_de_t(e, t) / e.v_lim);
+}
+
+// ---------------------------------------------------------------------
+// Controles dependientes de los datos
+// ---------------------------------------------------------------------
+const selEsfera = document.getElementById("selEsfera");
+DATA.esferas.forEach((e, i) => {
+  const opt = document.createElement("option");
+  opt.value = i;
+  opt.textContent = `${e.nombre} (D=${e.D_mm} mm)`;
+  selEsfera.appendChild(opt);
+});
+selEsfera.addEventListener("change", () => { estado.esferaDestacada = parseInt(selEsfera.value, 10); });
+
+const leyendaTubo = document.getElementById("leyendaTubo");
+DATA.esferas.forEach(e => {
+  const s = document.createElement("span");
+  s.innerHTML = `<span class="punto" style="background:${e.color}"></span>${e.nombre} (D=${e.D_mm} mm, v_lim=${e.v_lim.toFixed(4)} m/s)`;
+  leyendaTubo.appendChild(s);
+});
+
+document.getElementById("sMaxTexto").textContent = DATA.S_max.toFixed(2);
+
+document.getElementById("selSpeed").addEventListener("change", (ev) => {
+  estado.velocidad = parseFloat(ev.target.value);
+});
+
+function resetCarrera() {
+  estado.t = 0;
+  estado.corriendo = false;
+  estado.terminado = false;
+  estado.ultimoFrame = null;
+  historial.forEach(h => h.length = 0);
+  document.getElementById("btnPlay").textContent = "▶ Iniciar carrera";
+}
+
+document.getElementById("btnPlay").addEventListener("click", (ev) => {
+  if (estado.terminado) resetCarrera();
+  estado.corriendo = !estado.corriendo;
+  ev.target.textContent = estado.corriendo ? "⏸ Pausar" : "▶ Iniciar carrera";
+  estado.ultimoFrame = null;
+});
+document.getElementById("btnReset").addEventListener("click", resetCarrera);
+
+// ---------------------------------------------------------------------
+// Dibujo: probetas realistas con fluido y graduacion
+// ---------------------------------------------------------------------
+const cvsTubo = document.getElementById("canvasTubo");
+const ctxTubo = cvsTubo.getContext("2d");
+
+function dibujarProbeta(ctx, xCentro, anchoProbeta, yTop, yBottom, esfera, t) {
+  const yFluidTop = yTop + 14;      // S = 0
+  const yFluidBottom = yBottom - 10; // S = S_max
+  const x0 = xCentro - anchoProbeta / 2;
+  const w = anchoProbeta;
+  const alto = yBottom - yTop;
+
+  // cuerpo de vidrio
+  ctx.save();
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(x0, yTop, w, alto, 8); else ctx.rect(x0, yTop, w, alto);
+  ctx.clip();
+
+  // relleno de fluido con gradiente (aspecto liquido)
+  const grad = ctx.createLinearGradient(0, yFluidTop, 0, yBottom);
+  grad.addColorStop(0, "rgba(196,178,90,0.55)");
+  grad.addColorStop(1, "rgba(150,134,58,0.55)");
+  ctx.fillStyle = grad;
+  ctx.fillRect(x0, yFluidTop, w, yBottom - yFluidTop);
+
+  // menisco
+  ctx.fillStyle = "rgba(150,134,58,0.35)";
+  ctx.beginPath();
+  ctx.ellipse(xCentro, yFluidTop, w / 2, 4, 0, 0, 2 * Math.PI);
+  ctx.fill();
+  ctx.restore();
+
+  // graduacion (cada 0.10 m)
+  ctx.strokeStyle = "#9aa5b1";
+  ctx.fillStyle = "#667";
+  ctx.font = "9px sans-serif";
+  ctx.lineWidth = 1;
+  for (let s = 0; s <= DATA.S_max + 1e-9; s += 0.10) {
+    const frac = s / DATA.S_max;
+    const y = yFluidTop + frac * (yFluidBottom - yFluidTop);
+    ctx.beginPath();
+    ctx.moveTo(x0 + w, y);
+    ctx.lineTo(x0 + w + 5, y);
+    ctx.stroke();
+    ctx.fillText(`${Math.round(s * 100)}`, x0 + w + 7, y + 3);
+  }
+
+  // contorno del vidrio
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(x0, yTop, w, alto, 8); else ctx.rect(x0, yTop, w, alto);
+  ctx.strokeStyle = "#8ea0b3";
+  ctx.lineWidth = 1.4;
+  ctx.stroke();
+  // brillo (glass highlight)
+  ctx.strokeStyle = "rgba(255,255,255,0.6)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(x0 + 4, yTop + 6);
+  ctx.lineTo(x0 + 4, yBottom - 6);
+  ctx.stroke();
+
+  // base
+  ctx.fillStyle = "#7d8794";
+  ctx.fillRect(x0 - 6, yBottom, w + 12, 6);
+
+  // esfera
+  const y = y_de_t(esfera, t);
+  const frac = y / DATA.S_max;
+  const yPix = yFluidTop + frac * (yFluidBottom - yFluidTop);
+  const radioPx = 5 + 2.4 * (esfera.D_mm / 10);
+  const gradEsf = ctx.createRadialGradient(
+    xCentro - radioPx * 0.3, yPix - radioPx * 0.3, 1,
+    xCentro, yPix, radioPx
+  );
+  gradEsf.addColorStop(0, "#ffffff");
+  gradEsf.addColorStop(0.25, esfera.color);
+  gradEsf.addColorStop(1, esfera.color);
+  ctx.beginPath();
+  ctx.arc(xCentro, yPix, radioPx, 0, 2 * Math.PI);
+  ctx.fillStyle = gradEsf;
+  ctx.fill();
+  ctx.strokeStyle = "rgba(0,0,0,0.25)";
+  ctx.lineWidth = 0.8;
+  ctx.stroke();
+
+  // etiqueta superior: D, t, v, S
+  const v = v_de_t(esfera, t);
+  ctx.fillStyle = "#333";
+  ctx.font = "bold 11px sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText(`D=${esfera.D_mm} mm`, xCentro, yTop - 22);
+  ctx.font = "10px monospace";
+  ctx.fillText(`S=${y.toFixed(3)} m`, xCentro, yTop - 10);
+  ctx.font = "10px monospace";
+  ctx.fillText(`v=${v.toFixed(4)} m/s`, xCentro, yBottom + 22);
+
+  if (t >= esfera.t_llegada) {
+    ctx.fillStyle = "#2f7a3d";
+    ctx.font = "bold 10px sans-serif";
+    ctx.fillText(`✓ llegó a ${esfera.t_llegada.toFixed(2)} s`, xCentro, yBottom + 36);
+  }
+  ctx.textAlign = "left";
+}
+
+function dibujarTubo() {
+  const W = cvsTubo.width, H = cvsTubo.height;
+  ctxTubo.clearRect(0, 0, W, H);
+  const n = DATA.esferas.length;
+  const margenLat = 60, margenSup = 55, margenInf = 55;
+  const anchoDisp = (W - 2 * margenLat) / n;
+  const anchoProbeta = Math.min(anchoDisp * 0.55, 70);
+
+  DATA.esferas.forEach((e, i) => {
+    const xCentro = margenLat + anchoDisp * (i + 0.5);
+    dibujarProbeta(ctxTubo, xCentro, anchoProbeta, margenSup, H - margenInf, e, estado.t);
+  });
+}
+
+// ---------------------------------------------------------------------
+// Dibujo: comparacion de tiempos de llegada
+// ---------------------------------------------------------------------
+const cvsComp = document.getElementById("canvasComparacion");
+const ctxComp = cvsComp.getContext("2d");
+const MEDALLAS = ["🥇", "🥈", "🥉", "4°"];
+
+function dibujarComparacion() {
+  const W = cvsComp.width, H = cvsComp.height;
+  ctxComp.clearRect(0, 0, W, H);
+
+  const ordenadas = [...DATA.esferas].sort((a, b) => a.t_llegada - b.t_llegada);
+  const tMax = ordenadas[ordenadas.length - 1].t_llegada;
+  const margenIzq = 190, margenDer = 70;
+  const anchoUtil = W - margenIzq - margenDer;
+  const altoBarra = 30, espacio = 12;
+  let y = 16;
+
+  ordenadas.forEach((e, i) => {
+    const anchoPx = (e.t_llegada / tMax) * anchoUtil;
+    const llego = estado.t >= e.t_llegada;
+    ctxComp.globalAlpha = llego ? 1 : 0.35;
+    ctxComp.fillStyle = e.color;
+    ctxComp.fillRect(margenIzq, y, anchoPx, altoBarra);
+    ctxComp.globalAlpha = 1;
+
+    ctxComp.fillStyle = "#222";
+    ctxComp.font = "12px sans-serif";
+    ctxComp.textAlign = "right";
+    ctxComp.fillText(`${MEDALLAS[i]}  ${e.nombre} (D=${e.D_mm} mm)`, margenIzq - 10, y + altoBarra * 0.65);
+    ctxComp.textAlign = "left";
+    ctxComp.font = "11px monospace";
+    ctxComp.fillText(`${e.t_llegada.toFixed(2)} s${llego ? "  ✓" : ""}`, margenIzq + anchoPx + 8, y + altoBarra * 0.65);
+
+    y += altoBarra + espacio;
+  });
+}
+
+// ---------------------------------------------------------------------
+// Dibujo: grafica v(t)
+// ---------------------------------------------------------------------
+const cvsVt = document.getElementById("canvasVt");
+const ctxVt = cvsVt.getContext("2d");
+const historial = DATA.esferas.map(() => []);
+const tMaxGrafica = T_LLEGADA_MAX * 1.05;
+const vMaxGrafica = Math.max(...DATA.esferas.map(e => e.v_lim)) * 1.15;
+
+function dibujarVt() {
+  const W = cvsVt.width, H = cvsVt.height;
+  ctxVt.clearRect(0, 0, W, H);
+  const margen = { izq: 55, der: 15, sup: 15, inf: 35 };
+  const anchoUtil = W - margen.izq - margen.der;
+  const altoUtil = H - margen.sup - margen.inf;
+  function px(t) { return margen.izq + (t / tMaxGrafica) * anchoUtil; }
+  function py(v) { return margen.sup + altoUtil - (v / vMaxGrafica) * altoUtil; }
+
+  ctxVt.strokeStyle = "#888";
+  ctxVt.beginPath();
+  ctxVt.moveTo(margen.izq, margen.sup);
+  ctxVt.lineTo(margen.izq, margen.sup + altoUtil);
+  ctxVt.lineTo(margen.izq + anchoUtil, margen.sup + altoUtil);
+  ctxVt.stroke();
+  ctxVt.fillStyle = "#555";
+  ctxVt.font = "11px sans-serif";
+  ctxVt.fillText("t [s]", margen.izq + anchoUtil - 20, margen.sup + altoUtil + 20);
+  ctxVt.save();
+  ctxVt.translate(14, margen.sup + altoUtil / 2 + 20);
+  ctxVt.rotate(-Math.PI / 2);
+  ctxVt.fillText("v [m/s]", 0, 0);
+  ctxVt.restore();
+
+  DATA.esferas.forEach((e, i) => {
+    ctxVt.strokeStyle = e.color;
+    ctxVt.globalAlpha = 0.4;
+    ctxVt.setLineDash([3, 3]);
+    ctxVt.beginPath();
+    ctxVt.moveTo(px(0), py(e.v_lim));
+    ctxVt.lineTo(px(tMaxGrafica), py(e.v_lim));
+    ctxVt.stroke();
+    ctxVt.setLineDash([]);
+    ctxVt.globalAlpha = 1;
+
+    const h = historial[i];
+    if (h.length > 1) {
+      ctxVt.strokeStyle = e.color;
+      ctxVt.lineWidth = 2;
+      ctxVt.beginPath();
+      ctxVt.moveTo(px(h[0].t), py(h[0].v));
+      for (const p of h) ctxVt.lineTo(px(p.t), py(p.v));
+      ctxVt.stroke();
+    }
+  });
+}
+
+// ---------------------------------------------------------------------
+// Dibujo: balance de fuerzas (esfera destacada)
+// ---------------------------------------------------------------------
+const cvsF = document.getElementById("canvasFuerzas");
+const ctxF = cvsF.getContext("2d");
+
+function dibujarFuerzas() {
+  const e = DATA.esferas[estado.esferaDestacada];
+  document.getElementById("tituloFuerzas").textContent = `${e.nombre} (D=${e.D_mm} mm)`;
+
+  const W = cvsF.width, H = cvsF.height;
+  ctxF.clearRect(0, 0, W, H);
+
+  const netoMax = e.peso - e.empuje;
+  const arrastre = arrastre_de_t(e, estado.t);
+  const resultante = netoMax - arrastre;
+
+  const fuerzas = [
+    { nombre: "Peso", valor: e.peso, color: "#333333" },
+    { nombre: "Empuje", valor: e.empuje, color: "#1b6ea8" },
+    { nombre: "Arrastre viscoso", valor: arrastre, color: "#8c1c13" },
+    { nombre: "Resultante", valor: Math.max(resultante, 0), color: "#c99a2e" },
+  ];
+
+  const escalaMax = Math.max(e.peso, 1e-12);
+  const anchoBarraMax = W - 260;
+  const alturaBarra = 30, espacio = 18;
+  let y = 24;
+
+  fuerzas.forEach(f => {
+    const anchoPx = Math.max((f.valor / escalaMax) * anchoBarraMax, 1);
+    ctxF.fillStyle = f.color;
+    ctxF.fillRect(190, y, anchoPx, alturaBarra);
+    ctxF.fillStyle = "#222";
+    ctxF.font = "13px sans-serif";
+    ctxF.textAlign = "right";
+    ctxF.fillText(f.nombre, 180, y + alturaBarra * 0.65);
+    ctxF.textAlign = "left";
+    ctxF.font = "11px monospace";
+    ctxF.fillText(`${(f.valor * 1000).toFixed(4)} mN`, 190 + anchoPx + 8, y + alturaBarra * 0.65);
+    y += alturaBarra + espacio;
+  });
+
+  ctxF.fillStyle = "#555";
+  ctxF.font = "11px sans-serif";
+  ctxF.fillText(`v(t) = ${v_de_t(e, estado.t).toFixed(5)} m/s   (v_lim = ${e.v_lim.toFixed(5)} m/s)`, 190, y + 8);
+}
+
+// ---------------------------------------------------------------------
+// Tabla de resultados 5.1 - 5.3 y resumen global
+// ---------------------------------------------------------------------
+function llenarTablaResultados() {
+  const cuerpo = document.getElementById("cuerpoTablaResultados");
+  DATA.esferas.forEach(e => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${e.nombre}</td><td>${e.D_mm.toFixed(0)}</td><td>${e.n_puntos}</td>
+      <td>${e.v_m.toExponential(4)}</td><td>${e.R2.toFixed(5)}</td>
+      <td>${e.v_lim.toExponential(4)}</td><td>${e.mu_pas.toFixed(3)}</td>
+      <td>${e.d_mu_pas.toFixed(3)}</td><td>${e.d_mu_rel_pct.toFixed(2)}</td>
+      <td>${e.Re_c.toExponential(3)}</td>`;
+    cuerpo.appendChild(tr);
+  });
+
+  document.getElementById("resumenGlobal").innerHTML =
+    `<strong>Fluido:</strong> ${DATA.fluido} &nbsp;|&nbsp;
+     <strong>μ ponderado (4 esferas):</strong> (${DATA.mu_pond.toFixed(3)} ± ${DATA.d_mu_pond.toFixed(3)}) Pa·s &nbsp;|&nbsp;
+     <strong>χ²<sub>red</sub>:</strong> ${DATA.chi2_red.toFixed(2)}
+     ${DATA.chi2_red < 1 ? "(dispersión menor a la esperada — buena consistencia)" :
+       DATA.chi2_red < 2 ? "(consistente con las incertidumbres declaradas)" :
+       "(dispersión mayor a la esperada)"}`;
+}
+
+// ---------------------------------------------------------------------
+// Analisis dimensional (5.4): mini grafica log-log Cd vs Re
+// ---------------------------------------------------------------------
+function dibujarCdRe() {
+  const dim = DATA.analisis_dim;
+  if (!dim) return;
+  document.getElementById("seccionDimensional").style.display = "block";
+
+  const cvs = document.getElementById("canvasCdRe");
+  const ctx = cvs.getContext("2d");
+  const W = cvs.width, H = cvs.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const margen = { izq: 55, der: 15, sup: 15, inf: 40 };
+  const anchoUtil = W - margen.izq - margen.der;
+  const altoUtil = H - margen.sup - margen.inf;
+
+  const ReVals = dim.puntos.map(p => p.Re);
+  const CdVals = dim.puntos.map(p => p.Cd);
+  const logRe = ReVals.map(Math.log10);
+  const logCd = CdVals.map(Math.log10);
+  const minLR = Math.min(...logRe) - 0.15, maxLR = Math.max(...logRe) + 0.15;
+  const minLC = Math.min(...logCd) - 0.15, maxLC = Math.max(...logCd) + 0.15;
+
+  function px(lr) { return margen.izq + (lr - minLR) / (maxLR - minLR) * anchoUtil; }
+  function py(lc) { return margen.sup + altoUtil - (lc - minLC) / (maxLC - minLC) * altoUtil; }
+
+  ctx.strokeStyle = "#ccc";
+  ctx.font = "9px sans-serif";
+  ctx.fillStyle = "#888";
+  for (let e = Math.ceil(minLR); e <= Math.floor(maxLR); e++) {
+    ctx.beginPath(); ctx.moveTo(px(e), margen.sup); ctx.lineTo(px(e), margen.sup + altoUtil); ctx.stroke();
+    ctx.fillText(`10^${e}`, px(e) - 10, margen.sup + altoUtil + 14);
+  }
+  for (let e = Math.ceil(minLC); e <= Math.floor(maxLC); e++) {
+    ctx.beginPath(); ctx.moveTo(margen.izq, py(e)); ctx.lineTo(margen.izq + anchoUtil, py(e)); ctx.stroke();
+    ctx.fillText(`10^${e}`, 4, py(e) + 3);
+  }
+
+  // curva teorica de Stokes: Cd = 24/Re
+  ctx.strokeStyle = "#555";
+  ctx.setLineDash([4, 3]);
+  ctx.beginPath();
+  for (let i = 0; i <= 50; i++) {
+    const lr = minLR + (maxLR - minLR) * i / 50;
+    const lc = Math.log10(24) - lr;
+    const x = px(lr), y = py(lc);
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // ajuste potencial
+  ctx.strokeStyle = "#1b2a4a";
+  ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  for (let i = 0; i <= 50; i++) {
+    const lr = minLR + (maxLR - minLR) * i / 50;
+    const lc = Math.log10(dim.a_coef) + dim.b_exp * lr;
+    const x = px(lr), y = py(lc);
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // puntos de datos
+  const coloresPorD = {};
+  DATA.esferas.forEach(e => coloresPorD[e.D_mm] = e.color);
+  dim.puntos.forEach(p => {
+    ctx.beginPath();
+    ctx.arc(px(Math.log10(p.Re)), py(Math.log10(p.Cd)), 5, 0, 2 * Math.PI);
+    ctx.fillStyle = coloresPorD[p.D_mm] || "#8c1c13";
+    ctx.fill();
+    ctx.strokeStyle = "white";
+    ctx.stroke();
+  });
+
+  ctx.fillStyle = "#555";
+  ctx.font = "10px sans-serif";
+  ctx.fillText("Re", margen.izq + anchoUtil - 15, margen.sup + altoUtil + 28);
+  ctx.save();
+  ctx.translate(14, margen.sup + altoUtil / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText("Cd", 0, 0);
+  ctx.restore();
+
+  document.getElementById("resumenDimensional").innerHTML =
+    `Ajuste potencial: <strong>C<sub>d</sub> = ${dim.a_coef.toFixed(2)} · Re<sup>${dim.b_exp.toFixed(3)}</sup></strong>
+     (R² = ${dim.r2_dim.toFixed(4)})<br>
+     Diferencia con la teoría: a: ${(100*(dim.a_coef-24)/24).toFixed(1)}%,
+     b: ${(100*(dim.b_exp+1)/1).toFixed(1)}%.`;
+}
+
+// ---------------------------------------------------------------------
+// Bucle de animacion
+// ---------------------------------------------------------------------
+function paso(timestampMs) {
+  if (estado.ultimoFrame === null) estado.ultimoFrame = timestampMs;
+  const dtReal = (timestampMs - estado.ultimoFrame) / 1000;
+  estado.ultimoFrame = timestampMs;
+
+  if (estado.corriendo && !estado.terminado) {
+    estado.t += dtReal * estado.velocidad;
+
+    if (estado.t >= T_LLEGADA_MAX) {
+      estado.t = T_LLEGADA_MAX;
+      estado.corriendo = false;
+      estado.terminado = true;
+      document.getElementById("btnPlay").textContent = "▶ Repetir carrera";
+    }
+
+    DATA.esferas.forEach((e, i) => {
+      historial[i].push({ t: estado.t, v: v_de_t(e, estado.t) });
+      if (historial[i].length > 3000) historial[i].shift();
+    });
+  }
+
+  dibujarTubo();
+  dibujarComparacion();
+  dibujarVt();
+  dibujarFuerzas();
+
+  const elDoc = document.getElementById("estadoCarrera");
+  if (estado.terminado) {
+    const ganadora = DATA.esferas.reduce((a, b) => a.t_llegada < b.t_llegada ? a : b);
+    elDoc.textContent = `¡Carrera terminada! t = ${estado.t.toFixed(2)} s — ganó ${ganadora.nombre} (D=${ganadora.D_mm} mm)`;
+  } else {
+    elDoc.textContent = `t = ${estado.t.toFixed(2)} s`;
+  }
+
+  requestAnimationFrame(paso);
+}
+
+llenarTablaResultados();
+dibujarCdRe();
+requestAnimationFrame(paso);
+</script>
+
+</body>
+</html>
