@@ -1,0 +1,7 @@
+parametro,valor,unidad
+fluido_nombre,Jabon liquido de cocina,-
+densidad_fluido,1014.0,kg/m3
+temperatura_fluido,22.0,C
+gravedad,9.81,m/s2
+densidad_esfera,7850.0,kg/m3
+diametro_recipiente,90.0,mm

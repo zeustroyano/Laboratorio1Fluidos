@@ -1,0 +1,9 @@
+variable,valor,unidad,fuente
+temperatura,0.1,C,Tabla 1
+gravedad,1,cm/s2,Tabla 1
+densidad_esfera,0.02,g/cm3,Tabla 1
+densidad_fluido,0.02,g/cm3,Tabla 1
+diametro_esfera,0.05,mm,Tabla 1
+diametro_probeta,0.05,mm,Tabla 1
+longitud_S,0.5,cm,Seccion 4 (texto)
+tiempo_t,0.01,s,Seccion 4 (texto)
